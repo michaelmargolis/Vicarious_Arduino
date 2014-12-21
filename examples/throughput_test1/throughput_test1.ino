@@ -19,41 +19,41 @@ unsigned long errCount = 0;
 
 void setup()
 {
-  Serial.begin(115200); //debug messages are sent over USB
-  while (!Serial) ;
-  waitKey();
+  DEBUG_STREAM.begin(115200); //debug messages (link speed is set in library)
+  while (!DEBUG_STREAM) ; // for leonardo
+  //waitKey();
   do {
     errCount = 0;
     for (int i = 0; i < numberOfChannels; i++ ) {
       int id = firstChannel + i;
       if (! test[i].begin(id)) {
-        Serial.print("begin failed for Id "); Serial.println(id);
+        printf("begin failed for Id %d\n", id);
         errCount++;
       }
       else {
         if ( !test[i].smoothData(SMOOTHING)) {
-          Serial.print("smoothing failed for Id "); Serial.println(id);
+          printf("smoothing failed for Id %d\n", id);
         }
         if ( !test[i].mapData(0, 255, 0, 255)) {
-          Serial.print("mapData failed for Id "); Serial.println(id);
+          printf("mapData failed for Id %d\n", id);
         }
       }
     }
   }
    while (errCount);
       if (errCount) {
-        Serial.println("Stopping");
+        printf("Stopping \n");
         while (1)
           ;
       }
-    Serial.print("connecting ..");
+    printf("connecting ..");
     while ( test[0].status() != DATA_AVAILABLE) {
       // here until a connection is valid and data is available for at least one channel
       Serial.print(".");
       delay(100);
     }
-    Serial.println(" ready");
-    waitKey();
+    printf(" ready\n");
+    //waitKey();
   }
 
 
@@ -71,30 +71,33 @@ void setup()
       byte id = firstChannel + i;
       if (  values[i] != id) {
         errCount++;
-        Serial.print("data mismatch, got "); Serial.print(values[i]); Serial.print(", expected "); Serial.print(id), Serial.print(", errcount= ");
-        Serial.println(errCount);
+        printf("data mismatch, got %d,  expected %d, errcount = %ld\n",values[i],errCount);
       }
       else {
         successCount++;
         if ( successCount % 1000 == 0) {
-          Serial.print("After "); Serial.print(successCount); Serial.print(" messages, errs detected= ");  Serial.println(errCount);
+          printf("After %ld messages, errs detected= %ld\n", successCount, errCount);
         }
       }
     }
     if (durPerChan < minRoundTripTime) {
-      Serial.print("Round trip min time is");  Serial.print(durPerChan);  Serial.print(", Max is ");  Serial.println(maxRoundTripTime);
       minRoundTripTime = durPerChan;
+      printf("Round trip min time is %ld us, Max is %ld\n", durPerChan, maxRoundTripTime);
+   
     }
     if (durPerChan > maxRoundTripTime) {
-      Serial.print("Round trip min time is");  Serial.print(durPerChan);  Serial.print(", Max is ");  Serial.println(maxRoundTripTime);
       maxRoundTripTime = durPerChan;
+     printf("Round trip min time is %ld us, Max is %ld\n", durPerChan, maxRoundTripTime);
+
     }
     delay(interval);
   }
 
+  // this function requires the debug port to be different from the linkport
   char waitKey()
   {
-    return 0;
+    if( DEBUG_STREAM == LINK_STREAM)
+       return 0; // only wait for a char on the debug port if not the same as link    
     Serial.println("send any char to continue");
     while (Serial.available() < 1)
       ;

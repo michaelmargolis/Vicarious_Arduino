@@ -10,6 +10,14 @@
 #include <Arduino.h>
 #include <Stream.h>
 
+#define DEBUG_STREAM Serial
+
+#ifdef __AVR_ATmega32U4__
+#define LINK_STREAM Serial1 //HardwareSerial is Serial1 on Leonardo and Yun
+#else
+#define LINK_STREAM Serial  // HardwareSerial is Serial on Uno 
+#endif
+
 #define PRINTF_DEBUG
 #define VERBOSE_DEBUG(X) X  // uncomment x to enable verbose debug
 
@@ -29,12 +37,19 @@ const char DEBUG_MSG_HEADER    = '!';  // debug messages begin with this tag
 // Command tags that follow message headers:
 const char BEGIN_MSG_TAG       ='b';  // begin connection with the given data stream
 const char BEGIN_GROUP_MSG_TAG ='B';  // begin connection with the list of data streams
+
 const char STATUS_MSG_TAG      ='c';  // get connection status for the stream associated with the given tag
-const char READ_MSG_TAG        ='r';  // read (get) data for the stream associated with the given tag
-const char READ_GROUP_MSG_TAG  ='R';  // read (get) data for the stream associated with the given tag
+const char READ_MSG_TAG        ='r';  // consumer reading (getting) data for the stream associated with the given tag
+const char READ_GROUP_MSG_TAG  ='R';  // consumer reading (getting) data for the streams associated with the given tag
+
+const char WRITE_MSG_TAG        = 'w'; // provider sending a single data value
+const char WRITE_GROUP_MSG_TAG  = 'W'; // provider sending a group of data values
 
 const char SMOOTH_MSG_TAG     ='s';  // smooth data for the stream(s) associated with the given tag
 const char MAP_MSG_TAG        ='m';  // map data for the stream(s) associated with the given tag
+
+const char INFO_TAG           = '?'; // when sent from Arduino, gateway replies with API version information
+                                     // when received by Arduino, reply will be a list of providers
 
 const long READ_TIMEOUT = 1000;  // max ms to wait for a response to a read request
 const byte MIN_MSG_LEN = 5;      // valid request messages must be at least this many characters
@@ -42,7 +57,8 @@ const byte MIN_MSG_LEN = 5;      // valid request messages must be at least this
 const char MSG_DELIM      = '|';  // delimiter between message fields
 const char MSG_TERMINATOR = '\n'; // 
 
-typedef byte dataId_t;  // data stream identifier
+typedef byte consumerId_t;  // data stream identifier
+typedef byte collectorId_t; // collector data identifier
 
 // reply values from status request messages
 enum vStatus_t {INVALID_DATASTREAM =-1, DATA_UNAVAILABLE, DATA_AVAILABLE};
@@ -57,43 +73,93 @@ enum vDataTypes { UNKNOWN_TYPE, BYTE_TYPE, INT16_TYPE, INT32_TYPE, FLOAT_TYPE, S
 #ifdef PRINTF_DEBUG
 extern char _buf[64];
 #define printf(...)                         \
-    Serial.write(DEBUG_MSG_HEADER);   \
+    DEBUG_STREAM.write(DEBUG_MSG_HEADER);   \
     do {                            \
-        sprintf(_buf, __VA_ARGS__); Serial.write(_buf); \
+        sprintf(_buf, __VA_ARGS__); DEBUG_STREAM.write(_buf); \
     } while (0) 
     
  #else
  #define printf(...) 
  #endif
 
-class Vicarious 
+
+class VicariousConsumer 
 {
 
 public:
-  Vicarious();    
-  boolean begin(const dataId_t dataId);
-  boolean begin(const dataId_t data[], const int count);
+  VicariousConsumer();    
+  boolean begin(const consumerId_t dataId);
+  boolean begin(const consumerId_t data[], const int count);
   byte read();
   boolean read( byte data[]);
   vStatus_t status();
   boolean mapData(int, int, int, int);
   boolean smoothData(int samples);
-  void debug(const char *debugStr);
+  boolean isReadTime();
+  void setInterval(unsigned long dur);
 
  private:
-  dataId_t dataId;
+  consumerId_t dataId;
   byte dataStreamCount;  // the number of streams connected to the dataId
   void sendMsgHeader(char header);
-  void sendMessage(const char Tag, dataId_t id);
-  void sendMessage(const char Tag,  dataId_t id, int intVal);
+  void sendMessage(const char Tag, consumerId_t id);
+  void sendMessage(const char Tag,  consumerId_t id, int intVal);
+  void sendBeginMessage(const char tag, const char tag2, consumerId_t id, int intVal);
   //void sendMessage(const char tag, char *string); // not currently used
-  void reportError(const char *errorStr);  // public??
-  boolean getReplyResult();
+  boolean isReplySuccess();
   boolean getReplyValue(int &value);
   boolean getReplyArray(byte values[], byte count);
   boolean isMsgAvail();
-  void startLink();
+  unsigned long readInterval;
+  unsigned long previousReadTime;
+};
+
+class VicariousCollector 
+{
+public:
+VicariousCollector(); 
+boolean begin(PGM_P info);
+boolean begin(PGM_P info, const byte count);
+void beginMsg();
+void endMsg();
+void setInterval(long interval);
+boolean isSendTime();
+HardwareSerial &link;
+collectorId_t getId();
+
+private:
+collectorId_t id;
+unsigned long sendInterval;
+unsigned long previousSendTime;
+byte count; // the number of fields
+PGM_P info;
+};
+
+class Vicarious 
+{
+
+public:
+  friend class VicariousConsumer;
+  friend class VicariousProducer;
+  Vicarious();    
+  boolean begin();
+  void setConsumerList(VicariousConsumer *list[]); 
+  void setProviderList(VicariousCollector *list[]); 
+  void debug(const char *debugStr);
+  void reportError(const char *errorStr);  // public??
+  boolean isConnected();
+  void pstrPrint(PGM_P str);
+  byte addCollector(); 
+
+ private:
+  byte collectorCount;   //the number of collectors  
+  boolean ready;
+  VicariousConsumer ** consumers;
+  VicariousCollector ** providers;
+  boolean startLink();
   void dropAll() ;
 };
+
+extern Vicarious vicarious; // one global instance created in cpp file
 
 #endif
