@@ -1,17 +1,17 @@
 // MayhemArray sketch
-#include <Vicarious.h>
+#include <Vicarious2.h>
 
 
 const int numberOfDataStreams = 14;
 
 // the following array contains the data stream IDs to be used
-const dataId_t dataStreamIds[numberOfDataStreams]  = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
+const consumerId_t dataStreamIds[numberOfDataStreams]  = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
 byte data[numberOfDataStreams];                     //array to hold mayhem data
 
 const int SMOOTHING    = 32; // number of samples to smooth
 const int interval     = 100; // milliseconds between requests
 
-Vicarious mayhem;  //create data stream instances
+VicariousConsumer mayhem;  //create data stream instance
 
 void setup()
 {

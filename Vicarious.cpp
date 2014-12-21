@@ -125,9 +125,9 @@ boolean VicariousConsumer::begin(const consumerId_t data[], const int count)
   sendMsgHeader(REQUEST_MSG_HEADER);
   link.write(BEGIN_GROUP_MSG_TAG);  
   link.write(MSG_DELIM);
-  link.write('r');
+  link.write(READ_GROUP_MSG_TAG);
   link.write(MSG_DELIM);
-  link.write(BYTE_TYPE);
+  link.print(BYTE_TYPE);
   link.write(MSG_DELIM);
   link.print(count);
   for(byte i=0; i < count; i++) {
@@ -136,9 +136,9 @@ boolean VicariousConsumer::begin(const consumerId_t data[], const int count)
   } 
   link.print(MSG_TERMINATOR);
   
-  int id;
-  if( getReplyValue(id) ) { 
-     this->dataId = (consumerId_t)id;  // todo - check this
+  consumerId_t id = getGroupId();
+  if( id != 0) { 
+     this->dataId = id;
      this->dataStreamCount = count;
      ret = true;
   }
@@ -288,17 +288,17 @@ boolean VicariousConsumer::isReplySuccess()
 boolean VicariousConsumer::getReplyValue(int &value)
 {
   char hdr,tag;
-  delay(20); // todo - change this to a while loop that exits when data is valid (or timeout)
+  //delay(20); // todo - change this to a while loop that exits when data is valid (or timeout)
   if( isMsgAvail() ) {
      if( (hdr=link.read()) == REPLY_MSG_HEADER) {     
         tag =link.read();
-        //Serial.write((char)tag); Serial.print(",");
+        Serial.write((char)tag); Serial.print(",");
         //if( tag == READ_MSG_TAG) // ignore tag ?
         {                
           int id = link.parseInt();
-          //Serial.print(id); Serial.print(",");
+          Serial.print(id); Serial.print(",");
           int val = link.parseInt();
-          //Serial.print(val); Serial.println(",");
+          Serial.print(val); Serial.print(",");
           
           if(this->dataId == id) { // check if data for this instance
             value = val;    
@@ -312,6 +312,26 @@ boolean VicariousConsumer::getReplyValue(int &value)
      }
   }
   return false;
+}
+
+// returns the group id in response to a begin group msg (or 0 if valid reply not received) 
+consumerId_t VicariousConsumer::getGroupId()
+{
+  char hdr,tag;
+  consumerId_t groupId =0;
+  //delay(20); // todo - change this to a while loop that exits when data is valid (or timeout)
+  if( isMsgAvail() ) {
+     if( (hdr=link.read()) == REPLY_MSG_HEADER) {     
+        tag =link.read();
+        Serial.print("group id: "); Serial.write((char)tag); Serial.print(" =");
+        if( tag == BEGIN_GROUP_MSG_TAG) 
+        {                
+          groupId = link.parseInt();
+          Serial.println(groupId);          
+       }
+     }
+  }
+  return groupId;
 }
 
 // returns true with values array populated with read data, else false

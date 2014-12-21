@@ -57,7 +57,7 @@ const byte MIN_MSG_LEN = 5;      // valid request messages must be at least this
 const char MSG_DELIM      = '|';  // delimiter between message fields
 const char MSG_TERMINATOR = '\n'; // 
 
-typedef byte consumerId_t;  // data stream identifier
+typedef int consumerId_t;  // data stream identifier
 typedef byte collectorId_t; // collector data identifier
 
 // reply values from status request messages
@@ -107,6 +107,7 @@ public:
   void sendBeginMessage(const char tag, const char tag2, consumerId_t id, int intVal);
   //void sendMessage(const char tag, char *string); // not currently used
   boolean isReplySuccess();
+  consumerId_t getGroupId();
   boolean getReplyValue(int &value);
   boolean getReplyArray(byte values[], byte count);
   boolean isMsgAvail();

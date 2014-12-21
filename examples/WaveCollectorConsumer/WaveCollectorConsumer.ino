@@ -64,7 +64,6 @@ void setup()
 
 unsigned long collectorSequence = 1;
 int rawWaveReading; // raw wave reading stored here
-int rssi;  // signal strength reading stored here (but not used in this version)
 
 void loop()
 {
@@ -93,7 +92,7 @@ void waveSensorRefresh()
 {
   static unsigned int unexpectedChars = 0;
   char c;
-  static char buffer[13] = {0}; //rssi message requires null termination
+  char buffer[12];
   if (softSerial.available() >= 12)  {
     c = softSerial.read();
     if ( c == '-')
@@ -107,9 +106,6 @@ void waveSensorRefresh()
       if ( strncmp(buffer, "--ANA", 5) == 0) {
         rawWaveReading = atoi(&buffer[5]);
         //Serial.print(millis()); Serial.print(": reading "); Serial.println(rawWaveReading);
-      }
-      else if ( strncmp(buffer, "MMRSSIM", 7) == 0) {
-         rssi = atoi(&buffer[7]);
       }
       else {
         unexpectedChars++;
