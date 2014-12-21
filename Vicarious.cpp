@@ -292,13 +292,13 @@ boolean VicariousConsumer::getReplyValue(int &value)
   if( isMsgAvail() ) {
      if( (hdr=link.read()) == REPLY_MSG_HEADER) {     
         tag =link.read();
-        Serial.write((char)tag); Serial.print(",");
+        //Serial.write((char)tag); Serial.print(",");
         //if( tag == READ_MSG_TAG) // ignore tag ?
         {                
           int id = link.parseInt();
-          Serial.print(id); Serial.print(",");
+          //Serial.print(id); Serial.print(",");
           int val = link.parseInt();
-          Serial.print(val); Serial.print(",");
+          //Serial.print(val); Serial.print(",");
           
           if(this->dataId == id) { // check if data for this instance
             value = val;    
