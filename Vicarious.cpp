@@ -2,6 +2,8 @@
  * Vicarious.cpp   
  * 
  * Copyright (C) 2014 Michael Margolis
+ *
+  * Updated Dec 2014 to add support for consumer int and float data types
  */
 
 
@@ -109,16 +111,17 @@ Vicarious vicarious; // create an instance for the user
  
 VicariousConsumer::VicariousConsumer() { }
 
-boolean VicariousConsumer::begin(const consumerId_t id)
+
+boolean VicariousConsumer::begin(const consumerId_t id, vDataTypes type)
 {
 
   this->dataId = id; 
   this->dataStreamCount = 1;
-  sendBeginMessage(BEGIN_MSG_TAG, READ_MSG_TAG, this->dataId, BYTE_TYPE);
+  sendBeginMessage(BEGIN_MSG_TAG, READ_MSG_TAG, this->dataId, type);
   return isReplySuccess();    
 }
 
-boolean VicariousConsumer::begin(const consumerId_t data[], const int count)
+boolean VicariousConsumer::begin(const consumerId_t data[], const int count, vDataTypes type)
 {
   this->dataStreamCount = count;
   boolean ret = false;
@@ -127,7 +130,7 @@ boolean VicariousConsumer::begin(const consumerId_t data[], const int count)
   link.write(MSG_DELIM);
   link.write(READ_GROUP_MSG_TAG);
   link.write(MSG_DELIM);
-  link.print(BYTE_TYPE);
+  link.print(type);
   link.write(MSG_DELIM);
   link.print(count);
   for(byte i=0; i < count; i++) {
@@ -145,11 +148,15 @@ boolean VicariousConsumer::begin(const consumerId_t data[], const int count)
   return ret;
 }
 
+consumerId_t VicariousConsumer::getId()
+{
+  return this->dataId;
+}
 
-byte VicariousConsumer::read()
+byte VicariousConsumer::readByte()
 {
   sendMessage(READ_MSG_TAG, dataId);
-  int data; 
+  long data; 
   if( getReplyValue(data) ) {   
      return (byte)data;
   } 
@@ -157,28 +164,90 @@ byte VicariousConsumer::read()
   return 0; // todo ??
 }
 
-
-boolean VicariousConsumer::read( byte data[])
+int VicariousConsumer::readInt()
 {
+  sendMessage(READ_MSG_TAG, dataId);
+  long data; 
+  if( getReplyValue(data) ) {   
+     return (int)data;
+  } 
+  debugPrint("error reading dataStream ", dataId);    
+  return 0; // todo ??
+}
 
+long VicariousConsumer::readLong()
+{
+  sendMessage(READ_MSG_TAG, dataId);
+  long data; 
+  if( getReplyValue(data) ) {   
+     return data;
+  } 
+  debugPrint("error reading dataStream ", dataId);    
+  return 0; // todo ??
+}
+
+float VicariousConsumer::readFloat()
+{
+  sendMessage(READ_MSG_TAG, dataId);
+  float data; 
+  if( getReplyValue(data) ) {   
+     return data;
+  } 
+  debugPrint("error reading dataStream ", dataId);    
+  return 0.0; // todo ??
+}
+
+boolean VicariousConsumer::readBytes( byte data[])
+{
   sendMessage(READ_GROUP_MSG_TAG, this->dataId, this->dataStreamCount); 
-  if( getReplyArray(data, this->dataStreamCount) ) {  
+  if(  getReplyArray(data, this->dataStreamCount) ) {  
      return true;
   } 
   debugPrint("error reading chan ", this->dataId);        
-  // todo - zero the array before returning ???
   return false;
 }
-  
+
+boolean VicariousConsumer::readInts( int data[])
+{
+  sendMessage(READ_GROUP_MSG_TAG, this->dataId, this->dataStreamCount); 
+  if(  getReplyArray(data, this->dataStreamCount) ) {   
+     return true;
+  } 
+  debugPrint("error reading chan ", this->dataId);        
+  return false;
+} 
+
+boolean VicariousConsumer::readLongs( long data[])
+{
+  sendMessage(READ_GROUP_MSG_TAG, this->dataId, this->dataStreamCount); 
+  if(  getReplyArray(data, this->dataStreamCount) ) {   
+     return true;
+  } 
+  debugPrint("error reading chan ", this->dataId);        
+  return false;
+} 
+
+boolean VicariousConsumer::readFloats( float data[])
+{
+  sendMessage(READ_GROUP_MSG_TAG, this->dataId, this->dataStreamCount); 
+  if(  getReplyFloatArray(data, this->dataStreamCount) ) {   
+     return true;
+  } 
+  debugPrint("error reading chan ", this->dataId);        
+  return false;
+}
+ 
 vStatus_t VicariousConsumer::status()
 {
+  vStatus_t ret = INVALID_DATASTREAM;
   sendMessage(STATUS_MSG_TAG, this->dataId);
-  int reply;
-  if( getReplyValue(reply) ) {  
-     return (vStatus_t)reply; 
+  if( isReplySuccess() ) {
+     ret = DATA_AVAILABLE;
+  } 
+  else {
+    debugPrint("error getting status for stream ", this->dataId);        
   }
-  debugPrint("error getting status for  chan ", this->dataId);        
-  return INVALID_DATASTREAM; 
+  return ret; 
 }
 
 boolean VicariousConsumer::mapData(int fromLow, int fromHigh, int toLow, int toHigh )
@@ -221,7 +290,7 @@ void VicariousConsumer::sendMessage(const char tag, consumerId_t id)
   link.print(MSG_TERMINATOR);
 }
 
-void VicariousConsumer::sendMessage(const char tag, consumerId_t id, int intVal)
+void VicariousConsumer::sendMessage(const char tag, consumerId_t id, long intVal)
 {
   sendMsgHeader(REQUEST_MSG_HEADER);
   link.write(tag);
@@ -233,7 +302,7 @@ void VicariousConsumer::sendMessage(const char tag, consumerId_t id, int intVal)
   link.print(MSG_TERMINATOR);
 }
 
-void VicariousConsumer::sendBeginMessage(const char tag, const char tag2, consumerId_t id, int intVal)
+void VicariousConsumer::sendBeginMessage(const char tag, const char tag2, consumerId_t id,  vDataTypes type)
 {
   sendMsgHeader(REQUEST_MSG_HEADER);
   link.write(tag);
@@ -241,7 +310,7 @@ void VicariousConsumer::sendBeginMessage(const char tag, const char tag2, consum
   link.write(MSG_DELIM);
   link.print(id);
   link.write(MSG_DELIM);
-  link.print(intVal); 
+  link.print(type); 
   link.write(MSG_DELIM);
   link.print(MSG_TERMINATOR);
 }
@@ -275,7 +344,7 @@ boolean VicariousConsumer::isMsgAvail()
 // returns true/false for messages that provide success/failure response codes
 boolean VicariousConsumer::isReplySuccess()
 {
-  int result;
+  long result;
   if( getReplyValue(result) ) {     
      if( result == (int)REQUEST_SUCCESSFUL){
         return true;
@@ -285,7 +354,36 @@ boolean VicariousConsumer::isReplySuccess()
 }
 
 // returns true with value set to the read value, else false with data = 0 
-boolean VicariousConsumer::getReplyValue(int &value)
+boolean VicariousConsumer::getReplyValue(long &value)
+{
+  char hdr,tag;  
+  if( isMsgAvail() ) {
+     if( (hdr=link.read()) == REPLY_MSG_HEADER) {     
+        tag =link.read();
+        //Serial.write((char)tag); Serial.print(",");
+        //if( tag == READ_MSG_TAG) // ignore tag ?
+        {                
+          int id = link.parseInt();
+          //Serial.print(id); Serial.print(",");
+          long val = link.parseInt();
+          //Serial.print(val); Serial.print(",");
+          
+          if(this->dataId == id) { // check if data for this instance
+            value = val;    
+            return true;
+          }
+          else{
+            value = 0;
+            debugPrint("getReplyValue ERR: on id ", dataId);   
+         }    
+       }
+     }
+  }
+  return false;
+}
+
+// returns true with value set to the read value, else false with data = 0 
+boolean VicariousConsumer::getReplyValue(float &value)
 {
   char hdr,tag;
   //delay(20); // todo - change this to a while loop that exits when data is valid (or timeout)
@@ -297,7 +395,7 @@ boolean VicariousConsumer::getReplyValue(int &value)
         {                
           int id = link.parseInt();
           //Serial.print(id); Serial.print(",");
-          int val = link.parseInt();
+          float val = link.parseFloat();
           //Serial.print(val); Serial.print(",");
           
           if(this->dataId == id) { // check if data for this instance
@@ -318,16 +416,14 @@ boolean VicariousConsumer::getReplyValue(int &value)
 consumerId_t VicariousConsumer::getGroupId()
 {
   char hdr,tag;
-  consumerId_t groupId =0;
-  //delay(20); // todo - change this to a while loop that exits when data is valid (or timeout)
+  consumerId_t groupId =0; 
   if( isMsgAvail() ) {
      if( (hdr=link.read()) == REPLY_MSG_HEADER) {     
         tag =link.read();
-        Serial.print("group id: "); Serial.write((char)tag); Serial.print(" =");
         if( tag == BEGIN_GROUP_MSG_TAG) 
         {                
-          groupId = link.parseInt();
-          Serial.println(groupId);          
+          groupId = link.parseInt(); 
+          //debugPrint("got group id:", groupId);          
        }
      }
   }
@@ -335,7 +431,58 @@ consumerId_t VicariousConsumer::getGroupId()
 }
 
 // returns true with values array populated with read data, else false
+// supports byte, int and long types
 // note that values array will only be reliable when method returns true
+template<typename TYPE>
+boolean VicariousConsumer::getReplyArray(TYPE values[], byte count)
+{
+  char c; 
+  if( isMsgAvail() ) {
+     if( (c=link.read()) == REPLY_MSG_HEADER) {   
+        if( (c=link.read()) == READ_GROUP_MSG_TAG) {                 
+          int id = link.parseInt();           
+          int msgCount = link.parseInt(); 
+          if(this->dataId == id && msgCount == count) { // check if data for this instance           
+            for(byte i=0; i < msgCount; i++) {              
+              values[i] = (TYPE)link.parseInt();                   
+            }
+            return true;
+          }
+          else{ 
+            debugPrint("getReplyValue ERR: on id ", dataId); 
+            //printf("getReplyArray ERR: id=%d (%d) count=%d (%d)\n", this->dataId, id, count, msgCount);   
+         }    
+       }
+     }
+  }
+  return false;
+}
+
+boolean VicariousConsumer::getReplyFloatArray(float values[], byte count)
+{
+  char c; 
+  if( isMsgAvail() ) {
+     if( (c=link.read()) == REPLY_MSG_HEADER) {   
+        if( (c=link.read()) == READ_GROUP_MSG_TAG) {                 
+          int id = link.parseInt();           
+          int msgCount = link.parseInt(); 
+          if(this->dataId == id && msgCount == count) { // check if data for this instance           
+            for(byte i=0; i < msgCount; i++) {              
+                 values[i] = link.parseFloat();                                  
+            }
+            return true;
+          }
+          else{ 
+            debugPrint("getReplyValue ERR: on id ", dataId); 
+            //printf("getReplyArray ERR: id=%d (%d) count=%d (%d)\n", this->dataId, id, count, msgCount);   
+         }    
+       }
+     }
+  }
+  return false;
+}
+
+/*
 boolean VicariousConsumer::getReplyArray(byte values[], byte count)
 {
   char c; 
@@ -359,6 +506,7 @@ boolean VicariousConsumer::getReplyArray(byte values[], byte count)
   }
   return false;
 }
+*/
 
 // returns true if it is time for a consumer to get data from gateway
 boolean VicariousConsumer::isReadTime()
@@ -376,7 +524,7 @@ boolean VicariousConsumer::isReadTime()
 void VicariousConsumer::setInterval(unsigned long dur)
 {
   this->readInterval = dur;
-  debugPrint("consumer interval set to ", dur);  
+  //debugPrint("consumer interval set to ", dur);  
 }
 
 /**********************

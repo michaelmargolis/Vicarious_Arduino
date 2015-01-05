@@ -2,6 +2,8 @@
  * Vicarious.h -  
  * 
  * Copyright (C) 2014 Michael Margolis
+ * 
+ * Updated Dec 2014 to add support for consumer int and float data types
  */
 
 #ifndef Vicarious_h
@@ -22,12 +24,13 @@
 #define VERBOSE_DEBUG(X) X  // uncomment x to enable verbose debug
 
 
+
 /* Version numbers for the protocol.  
  * This number can be queried so that host software can test
  *  whether it will be compatible with the installed firmware. 
  */ 
-const int VICARIOUS_MAJOR_VERSION  = 0; // for non-compatible changes
-const int VICARIOUS_MINOR_VERSION  = 1; // for backwards compatibility
+const int VICARIOUS_MAJOR_VERSION  = 1; // for non-compatible changes
+const int VICARIOUS_MINOR_VERSION  = 0; // for backwards compatibility
   
 const char REQUEST_MSG_HEADER  = '>';  // precedes messages from API
 const char REPLY_MSG_HEADER    = '<';  // precedes messages to API
@@ -88,28 +91,58 @@ class VicariousConsumer
 
 public:
   VicariousConsumer();    
-  boolean begin(const consumerId_t dataId);
-  boolean begin(const consumerId_t data[], const int count);
-  byte read();
-  boolean read( byte data[]);
+  //boolean begin(const consumerId_t dataId);
+  boolean begin(const consumerId_t dataId, vDataTypes type);
+  
+  //boolean begin(const consumerId_t data[], const int count);
+  boolean begin(const consumerId_t data[], const int count, vDataTypes type);
+  
+  byte readByte();
+  int readInt();
+  long readLong();
+  float readFloat(); 
+
+
+  boolean readBytes( byte data[]);
+  boolean readInts( int data[]);
+  boolean readLongs( long data[]);
+  boolean readFloats( float data[]);
+
+
   vStatus_t status();
   boolean mapData(int, int, int, int);
   boolean smoothData(int samples);
   boolean isReadTime();
   void setInterval(unsigned long dur);
+  consumerId_t getId(); // only needed for testing
 
  private:
   consumerId_t dataId;
   byte dataStreamCount;  // the number of streams connected to the dataId
   void sendMsgHeader(char header);
   void sendMessage(const char Tag, consumerId_t id);
-  void sendMessage(const char Tag,  consumerId_t id, int intVal);
-  void sendBeginMessage(const char tag, const char tag2, consumerId_t id, int intVal);
+  void sendMessage(const char Tag,  consumerId_t id, long longVal);
+  //void sendMessage(const char Tag,  consumerId_t id, float floatVal); 
+  
+  void sendBeginMessage(const char tag, const char tag2, consumerId_t id, vDataTypes type);
+
+  
   //void sendMessage(const char tag, char *string); // not currently used
   boolean isReplySuccess();
   consumerId_t getGroupId();
-  boolean getReplyValue(int &value);
-  boolean getReplyArray(byte values[], byte count);
+  
+  boolean getReplyValue(long &value);
+  boolean getReplyValue(float &value); 
+
+  template<typename TYPE>
+  boolean getReplyArray(TYPE values[], byte count);
+  boolean getReplyFloatArray(float values[], byte count);
+ // boolean getReplyArray(int values[], byte count);
+ // boolean getReplyArray(long values[], byte count);
+
+
+  
+  
   boolean isMsgAvail();
   unsigned long readInterval;
   unsigned long previousReadTime;
